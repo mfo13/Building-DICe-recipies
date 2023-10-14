@@ -1,1 +1,287 @@
+Operating System: Ubuntu 22.04.3 LTS
+          Kernel: Linux 6.2.0-34-generic
+    Architecture: x86-64
+ Hardware Vendor: Supermicro
+         40 CPUs: Intel(R) Xeon(R) CPU E5-2650 v3 @ 2.30GHz
+
+Install some missing python packages:
+$ sudo apt-get install python2-dev python3-dev python3-numpy
+
+Update CMake (newer than ubuntu repository)
+$ wget https://github.com/Kitware/CMake/releases/download/v3.26.5/cmake-3.26.5.tar.gz
+$ tar -xvzf cmake-3.26.5.tar.gz
+$ cd cmake-3.27.5
+$ ./bootstrap
+$ make
+$ make install
+$ sudo make install
+
+Install Seacas (v2023-05-30) with Exodus. (ps.: HDF5 and Netcdf are automatically installed)
+$ git clone https://github.com/sandialabs/seacas.git
+$ cd seacas
+$ INSTALL_PATH=/usr/local/seacas COMPILER=intel MPI=YES CRAY=NO GNU_PARALLEL=NO JOBS=40 SUDO=sudo ./install-tpl.sh
+$ mkdir build
+$ cd build
+$ cp ../cmake-exodus .
+$ INSTALL_PATH=/usr/local/seacas COMPILER=intel MPI=YES CRAY=NO GNU_PARALLEL=NO ./cmake-exodus ../
+$ make -j 40
+$ make install
+$ sudo make install
+
+Edit Netcdf.h
+$ sudo vim /usr/local/seacas/include/netcdf.h
+Update the lines bellow:
+NC_MAX_DIMS 65536
+NC_MAX_VARS 524288
+
+Install Trilinos (14.4.0):
+$ wget https://github.com/trilinos/Trilinos/archive/refs/tags/trilinos-release-14-4-0.tar.gz
+$ tar -xvzf trilinos-release-14-4-0.tar.gz
+$ cd Trilinos-trilinos-release-14-4-0
+$ mkdir build
+$ cd build
+$ vim do-cmake-trilinos
+Paste and save the following script: 
+—
+rm -f CMakeCache.txt
+rm -rf CMakeFiles
+cmake \
+    -D CMAKE_INSTALL_PREFIX:FILEPATH="/usr/local/trilinos" \
+    -D CMAKE_BUILD_TYPE:STRING="RELEASE" \
+    -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
+    -D BUILD_SHARED_LIBS:BOOL=OFF \
+    \
+    -D Trilinos_ENABLE_Triutils:BOOL=OFF \
+    -D Trilinos_ENABLE_DEBUG:BOOL=OFF \
+    -D Trilinos_ENABLE_CHECKED_STL:BOOL=OFF \
+    -D Trilinos_ENABLE_EXPLICIT_INSTANTIATION:BOOL=OFF \
+    -D Trilinos_ENABLE_ALL_PACKAGES:BOOL=OFF \
+    -D Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES:BOOL=OFF \
+    -D Trilinos_ENABLE_CXX11:BOOL=ON \
+    -D Trilinos_ENABLE_OpenMP:BOOL=ON \
+    -D Trilinos_ENABLE_Ifpack:BOOL=ON \
+    -D Trilinos_ENABLE_Ifpack2:BOOL=ON \
+    -D Trilinos_ENABLE_Teuchos:BOOL=ON \
+    -D Trilinos_ENABLE_Epetra:BOOL=ON \
+    -D Trilinos_ENABLE_SEACASExodus:BOOL=ON \
+    -D Trilinos_ENABLE_SEACASIoss:BOOL=ON \
+    \
+    -D Trilinos_ENABLE_ExodusII:Bool=ON \
+    -D ExodusII_INCLUDE_DIRS:FILEPATH="/usr/local/seacas/include" \
+    -D ExodusII_LIBRARY_DIRS:FILEPATH="/usr/local/seacas/lib" \
+    -D ExodusII_LIBRARY_NAMES:STRING='fmt;netcdf' \
+    \
+    -D Trilinos_ENABLE_Belos:BOOL=ON \
+    -D Trilinos_WARNINGS_AS_ERRORS_FLAGS:STRING="" \
+    -D Trilinos_ENABLE_BUILD_STATS:BOOL=ON \
+    \
+    -D TPL_ENABLE_BinUtils:BOOL=OFF \
+    \
+    -D Tpetra_INST_SERIAL:BOOL=ON \
+    \
+    -D TPL_ENABLE_Netcdf:BOOL=ON \
+    -D Netcdf_INCLUDE_DIRS:FILEPATH="/usr/local/seacas/include" \
+    -D Netcdf_LIBRARY_DIRS:FILEPATH="/usr/local/seacas/lib" \
+    \
+    -D TPL_ENABLE_MPI:BOOL=ON \
+    -D MPI_EXEC:FILEPATH="/opt/intel/oneapi/mpi/latest/bin/mpiexec" \
+    \
+    -D CMAKE_C_COMPILER:STRING="mpiicc" \
+    -D CMAKE_C_FLAGS:STRING="-w -diag-disable=10441" \
+    -D CMAKE_Fortran_COMPILER:STRING="mpiifort" \
+    -D CMAKE_FORTRAN_FLAGS:STRING="-w" \
+    -D CMAKE_CXX_COMPILER:STRING="mpiicpc" \
+    -D CMAKE_CXX_FLAGS:STRING="-w -diag-disable=10441" \
+    \
+    -D TPL_ENABLE_BLAS:BOOL=ON \
+    -D BLAS_LIBRARY_DIRS:FILEPATH="/opt/intel/oneapi/mkl/latest/lib/intel64" \
+    -D BLAS_LIBRARY_NAMES:STRING="mkl_rt" \
+    \
+    -D TPL_ENABLE_LAPACK:BOOL=ON \
+    -D LAPACK_LIBRARY_DIRS:FILEPATH="/opt/intel/oneapi/mkl/latest/lib/intel64" \
+    -D LAPACK_LIBRARY_NAMES:STRING="mkl_rt" \
+    \
+    -D TPL_ENABLE_MKL:BOOL=ON \
+    -D MKL_LIBRARY_DIRS:FILEPATH="/opt/intel/oneapi/mkl/latest/lib/intel64" \
+    -D MKL_LIBRARY_NAMES:STRING="mkl_rt" \
+    -D MKL_INCLUDE_DIRS:FILEPATH="/opt/intel/oneapi/mkl/latest/include" \
+    -D Teuchos_ENABLE_THREAD_SAFE:BOOL=ON \
+    \
+    -D TPL_ENABLE_HDF5:BOOL=ON \
+    -D HDF5_INCLUDE_DIRS:FILEPATH="/usr/local/seacas/include" \
+    -D HDF5_LIBRARY_DIRS:FILEPATH="/usr/local/seacas/lib" \
+    \
+    -Wno-dev \
+    \
+../
+—
+Activate the oneAPI toolkits.
+$ module load oneAPI
+or perhaps
+$ source /opt/intel/oneapi/setvars.sh
+
+$ ./do-trilinos-cmake
+$ make -j 40
+The compilation takes a long time (~ 1 h with 40 CPUs).
+If you have a wokload manager like slurm, it is better to send a job.
+$ make install
+$ sudo make install
+
+Install GTK liraries for OpenCV:
+$ sudo apt-get install libavcodec-dev libavformat-dev libswscale-dev
+$ sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev
+$ sudo apt-get install libgtk2.0-dev ibgtk-3-dev
+
+Install image libraries for OpenCV:
+$ sudo apt-get install libpng-dev libjpeg-dev libopenexr-dev libtiff-dev libwebp-dev
+
+Install OpenCV (v. 3.2 as specified by DICe docs):
+$ wget https://github.com/opencv/opencv/archive/refs/tags/3.2.0.tar.gz
+$ tar -xvzf 3.2.0.tar.gz
+$ cd opencv-3.2.0
+$ mkdir build
+$ cd build
+$ vim do-opencv-cmake
+Paste and save the following script:
+—
+#!/bin/bash
+
+rm -f CMakeCache.txt
+rm -rf CMakeFiles
+
+cmake \
+    -D CMAKE_BUILD_TYPE:STRING="Release" \
+    -D CMAKE_INSTALL_PREFIX:FILEPATH="/usr/local/trilinos/opencv" \
+    -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
+    -D CMAKE_C_COMPILER:STRING="mpiicc" \
+    -D CMAKE_CXX_COMPILER:STRING="mpiicpc" \
+    -D CMAKE_C_FLAGS:STRING="-w -diag-disable=10441 -qmkl" \
+    -D CMAKE_CXX_FLAGS:STRING="-w -diag-disable=10441 -qmkl" \
+    -D BUILD_opencv_videoio:BOOL=ON \
+    -D BUILD_opencv_static:BOOL=ON \
+    -D BUILD_EXAMPLES:BOOL=OFF \
+    -D WITH_CUDA:BOOL=OFF \
+    -D WITH_GPHOTO2:BOOL=OFF \
+    -D ENABLE_PRECOMPILED_HEADERS:BOOL=OFF \
+    -Wno-dev \
+    ../
+—
+
+Fix the OpenCVCompilerOptions.cmake file:
+$ vim ~/opencv-3.2.0/cmake/OpenCVCompilerOptions.cmake
+Delete line 21 where you read: else() 
+Save and close the file.
+
+Fix the cap_ffmpeg_impl.hpp file to avoid ffmpeg compilation error.
+$ vim ~/opencv-3.2.0//modules/videoio/src/cap_ffmpeg_impl.hpp
+Paste the following 3 lines on the top, just after the comments:
+#define AV_CODEC_FLAG_GLOBAL_HEADER (1 << 22)
+#define CODEC_FLAG_GLOBAL_HEADER AV_CODEC_FLAG_GLOBAL_HEADER
+#define AVFMT_RAWPICTURE 0x0020
+
+Fix the cv2.cpp fiel to avoid a compilatin error.
+$ vim ~/opencv-3.2.0/modules/python/src2/cv2.cpp
+Update the line 730 as follows:
+const char* str = PyString_AsString(obj);
+
+Finally.
+$ ./do-opencv-cmake
+$ make -j 40
+$ make install
+$ sudo make install
+
+Install DICe (v. 3.0-beta.8)
+$ wget https://github.com/dicengine/dice/archive/refs/tags/v3.0-beta.8.tar.gz
+$ tar -xvzf v3.0-beta.8.tar.gz
+$ cd  cd dice-3.0-beta.8/
+$ mkdir build
+$ cd build
+$ vim do-dice-cmake
+Paste and save the following script:
+—
+rm -f CMakeCache.txt
+rm -rf CMakeFiles
+
+cmake \
+    -D CMAKE_BUILD_TYPE:STRING="RELEASE" \
+    -D DICE_TRILINOS_DIR:FILEPATH="/usr/local/trilinos" \
+    -D CMAKE_INSTALL_PREFIX:FILEPATH="~/DICe-install" \
+    -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
+    -D CMAKE_C_FLAGS:STRING="-diag-disable=10441 -w -qmkl" \
+    -D CMAKE_CXX_FLAGS:STRING="-diag-disable=10441 -std=c++14 -w -qmkl" \
+    -D DICE_DEBUG_MSG:BOOL=ON \
+    -D DICE_USE_TPETRA:BOOL=OFF \
+    -D DICE_ENABLE_GLOBAL:BOOL=ON \
+    -D DICE_USE_DOUBLE:BOOL=ON \
+    -D OpenCV_DIR:PATH="/usr/local/trilinos/opencv" \
+    -Wno-dev \
+    ../
+—
+
+ExodusII headers and libriries paths must be avaliable.
+$ export CPATH=$CPATH:/usr/local/seacas/include
+$ export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/seacas/lib
+
+Change DICe's CMakeList.txt (I don't know why, but it can't detect the MPI in Trilinos)
+$ vim ../CMakeLists.txt
+Cooment some lines as follows:
+
+# MPI check -- defaults to TRUE
+LIST(FIND Trilinos_TPL_LIST MPI MPI_List_ID)
+#IF (MPI_List_ID GREATER -1)
+  MESSAGE(STATUS "Checking if MPI is enabled in Trilinos: MPI ENABLED")
+  SET(DICE_MPI TRUE)
+  ADD_DEFINITIONS(-DDICE_MPI=1)
+  MESSAGE(STATUS "Using DICE_MPI_EXEC: ${DICE_MPI_EXEC}")
+ #ELSE()
+ #MESSAGE(STATUS "Checking if MPI is enabled in Trilinos: MPI NOT ENABLED")
+ #SET(DICE_MPI FALSE)
+ #ENDIF()
+
+Finally.
+$ ./do-dice-cmake
+$ make -j 40
+$ make install
+
+To run DICe oneAPI must be loaded and opencv as well as exodus libraries must be availiable.
+$ module load oneAPI
+or perhaps
+$ source /opt/intel/oneapi/setvars.sh
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/seacas/lib
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/trilinos/opencv/lib
+
+(If you have environment modules it's better to make a modulefile for that)
+
+Compilation tests.
+$ cd ~/dice-3.0-beta.8/build/tests
+$ module load oneAPI
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/seacas/lib
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/trilinos/opencv/lib
+$ ctest -j 40
+
+At the end I'v got:
+—
+94% tests passed, 15 tests failed out of 249
+
+Total Test time (real) = 276.51 sec
+
+The following tests FAILED:
+         3 - DICe_TestCameraSystem (Failed)
+        14 - DICe_TestImageToWorld2D (Subprocess aborted)
+        26 - DICe_TestRigidBodyShapeFunc (Subprocess aborted)
+        45 - DICe_TestCalibration (Failed)
+       106 - RUN_epipolar_distortion (Failed)
+       107 - DIFF_epipolar_distortion_DICe_solution_0.txt (Failed)
+       108 - DIFF_epipolar_distortion_DICe_solution_1.txt (Failed)
+       109 - RUN_distortion_correction_pp (Failed)
+       110 - DIFF_distortion_correction_pp_DICe_solution_0.txt (Failed)
+       151 - RUN_stereo_cine (Failed)
+       152 - DIFF_stereo_cine_DICe_solution_cine.e (Subprocess aborted)
+       157 - RUN_stereo_satellite (Failed)
+       158 - DIFF_stereo_satellite_DICe_out.e (Subprocess aborted)
+       161 - RUN_stereo_rectified (Failed)
+       162 - DIFF_stereo_rectified_DICe_solution.e (Subprocess aborted)
+—
+
+For tests details see: 
 
