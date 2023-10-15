@@ -13,8 +13,7 @@ $ tar -xvzf cmake-3.26.5.tar.gz
 $ cd cmake-3.27.5
 $ ./bootstrap
 $ make
-$ make install
-$ sudo make install
+$ sudo -E make install
 
 Install Seacas (v2023-05-30) with Exodus. (ps.: HDF5 and Netcdf are automatically installed)
 $ git clone https://github.com/sandialabs/seacas.git
@@ -25,8 +24,7 @@ $ cd build
 $ cp ../cmake-exodus .
 $ INSTALL_PATH=/usr/local/seacas COMPILER=intel MPI=YES CRAY=NO GNU_PARALLEL=NO ./cmake-exodus ../
 $ make -j 40
-$ make install
-$ sudo make install
+$ sudo -E make install
 
 Edit Netcdf.h
 $ sudo vim /usr/local/seacas/include/netcdf.h
@@ -120,12 +118,12 @@ $ module load oneAPI
 or perhaps
 $ source /opt/intel/oneapi/setvars.sh
 
+$ chmod +x do-trilinos-cmake
 $ ./do-trilinos-cmake
 $ make -j 40
 The compilation takes a long time (~ 1 h with 40 CPUs).
 If you have a wokload manager like slurm, it is better to send a job.
-$ make install
-$ sudo make install
+$ sudo -E make install
 
 Install GTK liraries for OpenCV:
 $ sudo apt-get install libavcodec-dev libavformat-dev libswscale-dev
@@ -185,6 +183,7 @@ Update the line 730 as follows:
 const char* str = PyString_AsString(obj);
 
 Finally.
+$ chmod +x do-opencv-cmake
 $ ./do-opencv-cmake
 $ make -j 40
 $ make install
@@ -225,7 +224,6 @@ $ export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/seacas/lib
 Change DICe's CMakeList.txt (I don't know why, but it can't detect the MPI in Trilinos)
 $ vim ../CMakeLists.txt
 Cooment some lines as follows:
-
 # MPI check -- defaults to TRUE
 LIST(FIND Trilinos_TPL_LIST MPI MPI_List_ID)
 #IF (MPI_List_ID GREATER -1)
@@ -239,27 +237,27 @@ LIST(FIND Trilinos_TPL_LIST MPI MPI_List_ID)
  #ENDIF()
 
 Finally.
+$ chmod +x do-dice-cmake
 $ ./do-dice-cmake
 $ make -j 40
 $ make install
 
-To run DICe oneAPI must be loaded and opencv as well as exodus libraries must be availiable.
+To run DICe oneAPI must be loaded and opencv as well as exodus libraries must be available.
 $ module load oneAPI
 or perhaps
 $ source /opt/intel/oneapi/setvars.sh
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/seacas/lib
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/trilinos/opencv/lib
+
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/seacas/lib:/usr/local/trilinos/opencv/lib
 
 (If you have environment modules it's better to make a modulefile for that)
 
 Compilation tests.
 $ cd ~/dice-3.0-beta.8/build/tests
 $ module load oneAPI
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/seacas/lib
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/trilinos/opencv/lib
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/seacas/lib:/usr/local/trilinos/opencv/lib
 $ ctest -j 40
 
-At the end I'v got:
+The current final result is:
 —
 94% tests passed, 15 tests failed out of 249
 
@@ -283,5 +281,5 @@ The following tests FAILED:
        162 - DIFF_stereo_rectified_DICe_solution.e (Subprocess aborted)
 —
 
-For tests details see: 
+For tests details see: Ctest-results file
 
